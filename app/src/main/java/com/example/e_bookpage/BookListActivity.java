@@ -1,9 +1,19 @@
 package com.example.e_bookpage;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.MenuItemCompat;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ListView;
+import android.widget.SearchView;
+import android.app.SearchManager;
+//import android.widget.SearchView;
+import android.widget.SearchView.OnQueryTextListener;
 
 import com.loopj.android.http.JsonHttpResponseHandler;
 
@@ -26,6 +36,8 @@ public class BookListActivity extends AppCompatActivity {
 
     private BookClient client;
 
+    public static final String BOOK_DETAIL_KEY = "book";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -35,19 +47,32 @@ public class BookListActivity extends AppCompatActivity {
         bookAdapter = new BookAdapter(this, aBooks);
         lvBooks.setAdapter(bookAdapter);
 
-        fetchBooks();
+        fetchBooks("oscar Wilde");
+        setupBookSelectedListener();
+    }
+
+    public void setupBookSelectedListener() {
+        lvBooks.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                // Launch the detail view passing book as an extra
+                Intent intent = new Intent(BookListActivity.this, BookDetailActivity.class);
+                intent.putExtra(BOOK_DETAIL_KEY, bookAdapter.getItem(position));
+                startActivity(intent);
+            }
+        });
     }
 
     // Executes an API call to the OpenLibrary search endpoint, parses the results
     // Converts them into an array of book objects and adds them to the adapter
-    private void fetchBooks() {
+    private void fetchBooks(String query) {
         client = new BookClient();
-        client.getBooks("oscar Wilde", new JsonHttpResponseHandler() {
+        client.getBooks(query, new JsonHttpResponseHandler() {
             @Override
             public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
                 try {
                     JSONArray docs = null;
-                    if(response != null) {
+                    if (response != null) {
                         // Get the docs json array
                         docs = response.getJSONArray("docs");
                         // Parse json array into array of model objects
@@ -67,7 +92,38 @@ public class BookListActivity extends AppCompatActivity {
             }
         });
     }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_book_list, menu);
+        final MenuItem searchItem = menu.findItem(R.id.action_search);
+////        final SearchView searchView =  (SearchView) searchItem.getActionView();
+        final SearchView searchView = (SearchView) MenuItemCompat.getActionView(searchItem);
+
+//        final SearchView searchView = (SearchView) searchItem.getActionView();
+        searchView.setFocusable(false);
+        searchView.setQueryHint("Search");
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                fetchBooks(query);
+                // Reset SearchView
+                searchView.clearFocus();
+                searchView.setQuery("", false);
+                searchView.setIconified(true);
+                searchItem.collapseActionView();
+                // Set activity title to search query
+                BookListActivity.this.setTitle(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+        return true;
+    }
 }
-
-
 
